@@ -1,0 +1,15 @@
+{
+    "banned": [],
+    "users": [
+        "Test",
+        "Kitsumi",
+        "Anon"
+    ],
+    "usersR": {
+        "kitsumi": {
+            "password": "cb360094d4783a0b98e72b5a7dd1786f7ab8c472ee3a1e68c2e1f5899ef06a84",
+            "salt": "9ykxzr",
+            "nick": "Kitsumi"
+        }
+    }
+}

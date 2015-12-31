@@ -1,0 +1,318 @@
+/********************
+ * CLIc: A CLI chat *
+ *                  *
+ *      Server      *
+ ********************/
+
+// Setup important variables.
+var users = [];
+var banned = [];
+var topicV = 'CLIc, a new chat';
+var database = {};
+
+// Check if there is a port, and if its valid.
+if (process.argv[2] === undefined) {
+    var port = 1111;
+} else if (process.argv[2] <= 0 || process.argv[2] >= 65536) {
+    console.log('Invalid port '+process.argv[2]);
+    process.exit();
+} else {
+    var port = process.argv[2];
+}
+
+// Case-insensitive array comparisons.
+Array.prototype.test = function(str){
+    if (typeof str === 'string' || str instanceof String) {
+        var newArr = [];
+
+        for (i=0; i<=this.length; i++) {
+            if (typeof str === 'string' || str instanceof String) {
+                if (this[i] !== undefined) {
+                    newArr.push(this[i].toLowerCase());
+                }
+            }
+        }
+
+        return newArr.indexOf(str.toLowerCase());
+    }
+}
+
+// Import files.
+var io = require('socket.io')(port);
+var blessed = require('blessed');
+var screen = blessed.screen();
+var jsonfile = require('jsonfile');
+var Random = require('random-js');
+var hash = require('sha256');
+
+// Initialize database.
+jsonfile.readFile(__dirname+"/database.json", function(err, obj) {
+    if (err == null) {
+        database = obj;
+    } else {
+        console.log("Database error: "+err);
+    }
+});
+
+// Function to save the database.
+function saveDatabase(obj) {
+    jsonfile.writeFile(__dirname+"/database.json", obj, {spaces: 4}, function(err) {
+        if(err !== null) {
+            write('Database save error: '+err);
+        }
+    });
+}
+
+// Get random number, hash a password, seed it with the number.
+function hashPass(pass, name) {
+    var engine = new Random(Random.engines.mt19937().autoSeed());
+    var salt = engine.integer(100000000, 1000000000).toString(36);
+    var newPass = hash(salt+pass);
+    database.usersR[name.toLowerCase()] = {};
+    database.usersR[name.toLowerCase()].password = newPass;
+    database.usersR[name.toLowerCase()].salt = salt;
+    database.usersR[name.toLowerCase()].nick = name;
+}
+
+// Create GUI elements
+var topicBox = blessed.box({
+    top: 0,
+    height: 1,
+    align: 'center',
+    content: 'Connecting...',
+    style: {
+        fg: 'white',
+        bg: 'blue'
+    }
+});
+
+var chatBox = blessed.box({
+    bottom: 1,
+    height: screen.height-2,
+    tags: true,
+    scrollable: true,
+    scrollbar: {
+        ch: ' ',
+        track: {
+            bg: 'blue'
+        },
+        style: {
+            inverse: true
+        }
+    }
+});
+
+var inputArea = blessed.textbox({
+    height: 1,
+    bottom: 0,
+    inputOnFocus: true,
+    style: {
+        bg: 'white',
+        fg: 'black',
+    }
+});
+
+// Add GUI to the screen
+screen.append(chatBox);
+screen.append(topicBox);
+screen.append(inputArea);
+
+// Add handler, finish GUI stuff
+inputArea.key('enter', function(ch, key) {
+    textHandle(inputArea.getValue());
+    inputArea.setValue('');
+    screen.render();
+    inputArea.focus();
+});
+
+inputArea.focus();
+screen.render();
+
+function parseText(str) {
+    var ColorFG = /#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})/g;
+    var ColorBG = /##([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})/g;
+    if (ColorBG.test(str)){
+        str = str.replace(ColorBG, function(match){
+            var nstr = match.substring(2);
+            return "{!+!#!"+nstr+"-bg}";
+        });
+    }
+    if (ColorFG.test(str)){
+        str = str.replace(ColorFG, function(match){
+            return "{"+match+"-fg}";
+        });
+    }
+    str = str.replace("|", "{/}");
+    str = str.replace("/*", "{bold}");
+    str = str.replace("/_", "{underline}");
+    str = str.replace("!+!#!", "#");
+    return str;
+}
+
+// Show text
+function write(text) {
+    var date = new Date();
+    var hours = (date.getHours()>12?(date.getHours()-12).toString():date.getHours().toString());
+    var minutes = date.getMinutes().toString();
+    var time = (hours.length<2?' '+hours:hours)+':'+(minutes.length<2?0+minutes:minutes)
+
+    chatBox.pushLine('{/}'+time+' '+parseText(text));
+    chatBox.setScrollPerc(100);
+    screen.render();
+}
+
+// Handle all text.
+function textHandle(text) {
+    var test = text.split("");
+    if (test[0] == "/") {
+        commandHandler(text);
+    } else {
+        io.emit('message', '** '+parseText(text)+' **'+'{/}');
+        write('** '+text+' **'+'{/}');
+    }
+}
+
+// Command Handler
+function commandHandler(text) {
+    var args = text.split(" ");
+    var command = args[0].substring(1);
+    if (command == "killserver") {
+        process.exit();
+    } else {
+        write('* {red-fg}Command "'+command+'" doesn\'t exist. Type /help for a list of commands.{/} *'+'{/}');
+    }
+}
+
+// Start handling users
+io.on('connection', function(socket){
+    socket.nick = "Anon";
+    socket.kick = 0;
+    socket.ip = socket.handshake.address;
+    if (banned.indexOf(socket.ip) != -1 && database.perma.indexOf(socket.ip) != -1) {
+        socket.disconnect();
+    }
+    users.push(socket.nick);
+    socket.emit('topic', 'Topic: '+topicV+'{/}');
+
+    setInterval(function(){
+         if(socket.kick > 0){
+            socket.kick--;
+         }
+    }, 1000);
+
+    write('* '+socket.nick+' has connected. *');
+    io.emit('server-message', socket.nick+' has connected');
+    io.emit('users', users.join("\n"));
+
+    socket.on('message', function(chat){
+        if (chat.trim() != "" && chat.trim() !== undefined && !(/\A\z/.test(parseText(chat.trim())))) {
+            io.emit('message', socket.nick+': '+parseText(chat)+'{/}');
+            write(socket.nick+': '+chat+'{/}');
+            socket.kick++;
+            if (socket.kick > 20) {
+                socket.emit('server-message', '{red-fg}Please don\'t spam.{/}');
+                banned.push(socket.ip);
+                setTimeout(function(){
+                    banned.splice(banned.indexOf(socket.ip), 1);
+                },300000);
+                socket.disconnect();
+            }
+        }
+    });
+
+    socket.on('login', function(pass, nick) {
+        var user = database.usersR[nick.toLowerCase()]; 
+        if (database.users.test(nick) == -1) {
+            socket.emit('server-message', '{red-fg}User does not exist.{/}');
+        } else {
+            if (hash(user.salt+pass) == user.password) {
+                io.emit('server-message', socket.nick+' is now known as '+user.nick);
+                write('* '+socket.nick+' is now known as '+user.nick+' *');
+                users.splice(users.test(socket.nick), 1);
+                socket.nick = user.nick;
+                users.push(socket.nick);
+                io.emit('users', users.join("\n"));
+            } else {
+                socket.emit('server-message', '{red-fg}Incorrect password.{/}');
+                write(hash(user.salt+pass));
+            }
+        }
+    });
+
+    socket.on('register', function(pass) {
+        if (socket.nick == "Anon") {
+            if (database.users.test(socket.nick) == -1) {
+                if (/\s/g.test(pass)) {
+                    socket.emit('server-message', '{red-fg}Password cannot contain spaces.{/}');
+                } else {
+                    hashPass(pass, socket.nick);
+                    database.users.push(socket.nick);
+                    saveDatabase(database);
+                    socket.emit('server-message', '{green-fg}Registered!{/}');
+                    write('* {green-fg}Successfully registered the nick '+socket.nick+'!{/} *');
+                }
+            } else {
+                socket.emit('server-message', '{red-fg}You already registered!{/}');
+                write('* {red-fg}You already registered the nick "'+socket.nick+'".{/} *');
+            }
+        } else {
+            socket.emit('server-message', '{red-fg}You can\'t register Anon!{/}');
+        }
+    });
+
+    socket.on('disconnect', function(){
+        io.emit('server-message', socket.nick + ' has disconnected'+'{/}');
+        write('* ' + socket.nick + ' has disconnected' + ' *'+'{/}');
+        users.splice(users.test(socket.nick), 1);
+        io.emit('users', users.join("\n"));
+    });
+
+    socket.on('nickChange', function(nick) {
+        if (/^[a-zA-Z0-9_.-]*$/g.test(nick) && nick.length < 24 && nick.length > 0) {
+        if (database.users.test(nick) == -1) {
+           if (users.test(nick) == -1){
+                io.emit('server-message', socket.nick+' is now known as '+nick);
+                write('* '+socket.nick+' is now known as '+nick+' *');
+                users.splice(users.test(socket.nick), 1);
+                socket.nick = nick;
+                users.push(socket.nick);
+                io.emit('users', users.join("\n"));
+            } else {
+                socket.emit('server-message', '{red-fg}That nick is currently in use.{/}');
+                write('* {red-fg}Sorry, '+socket.nick+', that nick is currently in use.{/} *');
+            }
+        } else {
+            socket.emit('server-message', 'That nick is registered, use /login.');
+            write('Sorry, '+socket.nick+', that nick is registered, use /login.'); 
+        }
+        } else {
+            socket.emit('server-message', '{red-fg}That name is invalid.{/}');
+            write('* {red-fg}'+socket.nick+', that name is invalid.{/} *');
+        }
+    });
+
+    socket.on('topic', function(topic){
+        write('* '+socket.nick + ' has set the topic to ' + topic+' *'+'{/}');
+        io.emit('topic', 'Topic: '+topic+'{/}');
+        topicV = topic;
+        topicBox.setText('Topic: '+topic+'{/}');
+        screen.render();
+    });
+
+    socket.on('me', function(me){
+        io.emit('server-message', socket.nick + ' ' + me +'{/}');
+        socket.kick++;
+        if (socket.kick > 20) {
+            socket.emit('server-message', '{red-fg}Please don\'t spam.{/}');
+            banned.push(socket.ip);
+            setTimeout(function(){
+                banned.splice(indexOf(socket.ip), 1);
+            },300000);
+            socket.disconnect();
+        }
+    });
+});
+
+write('Server running on 127.0.0.1:'+port);
+topicBox.setText('Topic: ' + topicV);
+screen.render();

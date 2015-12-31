@@ -1,0 +1,25 @@
+{
+    "banned": [],
+    "users": [
+        "Kitsumi",
+        "Test",
+        "User"
+    ],
+    "usersR": {
+        "kitsumi": {
+            "password": "cb360094d4783a0b98e72b5a7dd1786f7ab8c472ee3a1e68c2e1f5899ef06a84",
+            "salt": "9ykxzr",
+            "nick": "Kitsumi"
+        },
+        "test": {
+            "password": "df9a1f1c636446ba530ce27181b0a49d7a913ccfb192205cd2b01a64b7a4a6ed",
+            "salt": "bennx9",
+            "nick": "Test"
+        },
+        "user": {
+            "password": "5042cfd392c38d4a776b82d328a12b4f2347a0abf5fed582c8ca1349b21cee3a",
+            "salt": "4mcfqi",
+            "nick": "User"
+        }
+    }
+}

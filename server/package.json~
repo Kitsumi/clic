@@ -1,0 +1,13 @@
+{
+  "name": "CLIc-server",
+  "version": "1.0.0",
+  "description": "The server for a CLI chat",
+  "author": "Kit",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "jsonfile": "^2.2.3",
+    "random-js": "^1.0.8",
+    "sha256": "^0.2.0",
+    "socket.io": "^1.3.7"
+  }
+}
