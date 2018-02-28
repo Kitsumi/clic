@@ -1,31 +1,31 @@
-#CLIc
-A cli chat I made.
+# CLIc
+A simple chat client and server that uses websockets for connections.
 
-##Install (server)
+## Install (server)
 ```
 npm install
 ```
 
-##Usage (server)
+## Usage (server)
 ```
 node server.js <port>
 ```
 If no port is specified, it will use `1111`.
 
-##Install (client)
+## Install (client)
 You can install from git, or use npm
-####Npm:
+#### Npm:
 `sudo npm install --global clic-client`
-####Git:
+#### Git:
 `sudo npm install --global`
 
-##Usage (client)
+## Usage (client)
 ```
 clic <ip> <port>
 ```
 If no port is specified, it will use `1111`.
 
-##Licence
+## Licence
 
 Zlib licence
 ```
