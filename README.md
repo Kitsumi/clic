@@ -29,7 +29,7 @@ If no port is specified, it will use `1111`.
 
 Zlib licence
 ```
-  Copyright (C) 2015-2016 KitsumiTheFox(Jayce Webb)
+  Copyright (C) 2015-2018 Jayce (Kit) Webb
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
